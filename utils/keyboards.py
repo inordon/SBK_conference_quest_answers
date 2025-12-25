@@ -74,7 +74,7 @@ def get_settings_menu():
 
 # ============ ВЫБОР МЕРОПРИЯТИЙ ============
 
-def get_events_keyboard(events: list[Event]) -> InlineKeyboardMarkup:
+def get_events_keyboard(events: list) -> InlineKeyboardMarkup:
     """Клавиатура для выбора мероприятия (для вопросов)"""
     keyboard = []
     for event in events:
@@ -87,7 +87,7 @@ def get_events_keyboard(events: list[Event]) -> InlineKeyboardMarkup:
     keyboard.append([InlineKeyboardButton("❌ Отмена", callback_data="cancel")])
     return InlineKeyboardMarkup(keyboard)
 
-def get_events_to_close_keyboard(events: list[Event]) -> InlineKeyboardMarkup:
+def get_events_to_close_keyboard(events: list) -> InlineKeyboardMarkup:
     """Клавиатура для выбора мероприятия для закрытия"""
     keyboard = []
     for event in events:
@@ -100,7 +100,7 @@ def get_events_to_close_keyboard(events: list[Event]) -> InlineKeyboardMarkup:
     keyboard.append([InlineKeyboardButton("❌ Отмена", callback_data="events_menu")])
     return InlineKeyboardMarkup(keyboard)
 
-def get_events_for_report_keyboard(events: list[Event]) -> InlineKeyboardMarkup:
+def get_events_for_report_keyboard(events: list) -> InlineKeyboardMarkup:
     """Клавиатура для выбора мероприятия для отчета"""
     keyboard = []
     for event in events:
@@ -129,7 +129,7 @@ def get_rating_keyboard(event_id: int) -> InlineKeyboardMarkup:
     keyboard.append([InlineKeyboardButton("❌ Отмена", callback_data="cancel")])
     return InlineKeyboardMarkup(keyboard)
 
-def get_events_to_rate_keyboard(events: list[Event]) -> InlineKeyboardMarkup:
+def get_events_to_rate_keyboard(events: list) -> InlineKeyboardMarkup:
     """Клавиатура для выбора мероприятия для оценки"""
     keyboard = []
     for event in events:
@@ -160,6 +160,7 @@ def get_confirm_keyboard(action: str, item_id: int = None) -> InlineKeyboardMark
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
+
 def get_back_button(callback_data: str = "main_menu") -> InlineKeyboardMarkup:
     """Кнопка назад"""
     keyboard = [[InlineKeyboardButton("↩️ Назад", callback_data=callback_data)]]

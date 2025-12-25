@@ -20,8 +20,8 @@ class Config:
     DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     
     # Settings
-    TIMEZONE = os.getenv('TIMEZONE', 'Europe/Moscow')  # Здесь дефолт имеет смысл
-    LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')  # И здесь тоже
+    TIMEZONE = os.getenv('TIMEZONE', 'Europe/Moscow')
+    LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     
     # Rating settings
     RATING_MIN = 1

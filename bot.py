@@ -17,7 +17,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-async def start(update, context):
+
+async def start(update: Update, context):
     """Обработчик команды /start"""
     telegram_id = update.effective_user.id
     chat_type = update.effective_chat.type
@@ -58,7 +59,14 @@ async def start(update, context):
                 reply_markup=get_user_main_menu()
             )
 
-async def help_command(update, context):
+
+async def cancel_command(update: Update, context):
+    """Обработчик команды /cancel"""
+    context.user_data.clear()
+    await update.message.reply_text("❌ Действие отменено.")
+
+
+async def help_command(update: Update, context):
     """Обработчик команды /help"""
     telegram_id = update.effective_user.id
     
@@ -98,10 +106,12 @@ async def help_command(update, context):
         
         await update.message.reply_text(help_text, parse_mode='HTML')
 
+
 async def handle_private_message(update: Update, context):
     """Обработка текстовых сообщений в личке"""
     text = update.message.text
     
+    # Обработка ввода в различных режимах
     if 'creating_event' in context.user_data:
         await admin.handle_event_name_input(update, context)
         return
@@ -139,6 +149,7 @@ async def handle_private_message(update: Update, context):
             await update.message.reply_text("Используйте /start для начала работы")
             return
         
+        # Обработка кнопок главного меню
         if text == "❓ Задать вопрос":
             await user.start_question(update, context)
         
@@ -151,16 +162,12 @@ async def handle_private_message(update: Update, context):
         elif db_user.role == UserRole.ADMIN:
             if text == "📅 Мероприятия":
                 await admin.show_events_menu(update, context)
-            
             elif text == "👥 Пользователи":
                 await admin.show_users_menu(update, context)
-            
             elif text == "📊 Статистика":
                 await admin.show_stats_menu(update, context)
-            
             elif text == "⚙️ Настройки":
                 await admin.show_settings_menu(update, context)
-            
             else:
                 await update.message.reply_text(
                     "Используйте кнопки меню для навигации или /start для начала."
@@ -169,6 +176,7 @@ async def handle_private_message(update: Update, context):
             await update.message.reply_text(
                 "Используйте кнопки меню для навигации или /start для начала."
             )
+
 
 def main():
     """Запуск бота"""
@@ -181,26 +189,33 @@ def main():
         
         application = Application.builder().token(Config.BOT_TOKEN).build()
         
+        # Команды
         application.add_handler(CommandHandler("start", start))
         application.add_handler(CommandHandler("help", help_command))
+        application.add_handler(CommandHandler("cancel", cancel_command))
         
+        # Callback-кнопки
         application.add_handler(CallbackQueryHandler(admin.handle_admin_callbacks))
         
+        # Текстовые сообщения в личке
         application.add_handler(MessageHandler(
             filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE,
             handle_private_message
         ))
         
+        # Фото в личке
         application.add_handler(MessageHandler(
             filters.PHOTO & filters.ChatType.PRIVATE, 
             user.handle_question_photo
         ))
         
+        # Ответы менеджеров в рабочей группе
         application.add_handler(MessageHandler(
-            filters.ChatType.SUPERGROUP & filters.REPLY, 
+            filters.ChatType.SUPERGROUP & filters.REPLY & filters.TEXT, 
             manager.handle_manager_reply
         ))
         
+        # Команда назначения менеджера в группе
         application.add_handler(CommandHandler("promote", admin.promote_from_group))
         
         logger.info("✅ Бот успешно запущен")
@@ -209,6 +224,7 @@ def main():
     except Exception as e:
         logger.error(f"❌ Критическая ошибка при запуске бота: {e}")
         raise
+
 
 if __name__ == '__main__':
     main()

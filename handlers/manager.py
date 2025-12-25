@@ -4,6 +4,7 @@ from database.db import get_session
 from database.models import Feedback, User
 from utils.decorators import manager_or_admin
 from config import Config
+from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,7 @@ async def handle_manager_reply(update: Update, context: ContextTypes.DEFAULT_TYP
             return
         
         feedback.answered_by = manager.id
+        feedback.answered_at = datetime.utcnow()
         session.commit()
         
         try:

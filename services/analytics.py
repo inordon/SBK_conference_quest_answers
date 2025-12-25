@@ -3,10 +3,10 @@ from sqlalchemy import func, desc
 from database.models import Event, Feedback, Rating, User, UserRole, EventStatus, FeedbackStatus
 from datetime import datetime, timedelta
 from collections import Counter
-import pandas as pd
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 def get_general_stats(session: Session) -> dict:
     """Получить общую статистику по всем мероприятиям"""
@@ -35,7 +35,7 @@ def get_general_stats(session: Session) -> dict:
         )
         .join(Rating, Event.id == Rating.event_id)
         .group_by(Event.id, Event.name)
-        .having(func.count(Rating.id) >= 3)  # Минимум 3 оценки
+        .having(func.count(Rating.id) >= 3)
         .order_by(desc('avg_rating'))
         .limit(3)
         .all()
@@ -63,6 +63,7 @@ def get_general_stats(session: Session) -> dict:
         'top_events': top_events
     }
 
+
 def get_event_stats(session: Session, event_id: int) -> dict:
     """Получить детальную статистику по конкретному мероприятию"""
     
@@ -70,28 +71,23 @@ def get_event_stats(session: Session, event_id: int) -> dict:
     if not event:
         return None
     
-    # Основные метрики
     total_feedbacks = len(event.feedbacks)
     total_ratings = len(event.ratings)
     
-    # Статистика по статусам обратной связи
     feedback_statuses = Counter(f.status for f in event.feedbacks)
     
-    # Средняя оценка и распределение
     ratings_values = [r.rating for r in event.ratings]
     avg_rating = sum(ratings_values) / len(ratings_values) if ratings_values else 0
     rating_distribution = Counter(ratings_values)
     
-    # Время ответа менеджеров (среднее)
     response_times = []
     for feedback in event.feedbacks:
         if feedback.answered_at and feedback.created_at:
             delta = feedback.answered_at - feedback.created_at
-            response_times.append(delta.total_seconds() / 3600)  # в часах
+            response_times.append(delta.total_seconds() / 3600)
     
     avg_response_time = sum(response_times) / len(response_times) if response_times else 0
     
-    # Топ менеджеров по количеству ответов
     manager_stats = (
         session.query(
             User.full_name,
@@ -113,7 +109,6 @@ def get_event_stats(session: Session, event_id: int) -> dict:
         for m in manager_stats
     ]
     
-    # Комментарии с оценками
     comments = [
         {
             'rating': r.rating,
@@ -123,7 +118,6 @@ def get_event_stats(session: Session, event_id: int) -> dict:
         for r in event.ratings if r.comment
     ]
     
-    # Динамика по дням
     feedbacks_by_day = {}
     for feedback in event.feedbacks:
         day = feedback.created_at.date()
@@ -142,6 +136,7 @@ def get_event_stats(session: Session, event_id: int) -> dict:
         'feedbacks_by_day': feedbacks_by_day
     }
 
+
 def get_all_events_stats(session: Session) -> list:
     """Получить статистику по всем мероприятиям"""
     
@@ -155,86 +150,8 @@ def get_all_events_stats(session: Session) -> list:
     
     return stats
 
-def get_user_activity_stats(session: Session, days: int = 30) -> dict:
-    """Статистика активности пользователей за последние N дней"""
-    
-    since_date = datetime.utcnow() - timedelta(days=days)
-    
-    # Активные пользователи (оставившие feedback или оценку)
-    active_users_feedback = (
-        session.query(func.count(func.distinct(Feedback.user_id)))
-        .filter(Feedback.created_at >= since_date)
-        .scalar()
-    )
-    
-    active_users_rating = (
-        session.query(func.count(func.distinct(Rating.user_id)))
-        .filter(Rating.created_at >= since_date)
-        .scalar()
-    )
-    
-    # Новые пользователи
-    new_users = (
-        session.query(func.count(User.id))
-        .filter(User.created_at >= since_date)
-        .scalar()
-    )
-    
-    # Активность менеджеров
-    manager_activity = (
-        session.query(
-            User.full_name,
-            User.username,
-            func.count(Feedback.id).label('responses')
-        )
-        .join(Feedback, User.id == Feedback.answered_by)
-        .filter(
-            Feedback.answered_at >= since_date,
-            User.role.in_([UserRole.MANAGER, UserRole.ADMIN])
-        )
-        .group_by(User.id, User.full_name, User.username)
-        .order_by(desc('responses'))
-        .all()
-    )
-    
-    return {
-        'days': days,
-        'active_users_feedback': active_users_feedback,
-        'active_users_rating': active_users_rating,
-        'new_users': new_users,
-        'manager_activity': [
-            {
-                'name': m.full_name or m.username or 'Неизвестный',
-                'responses': m.responses
-            }
-            for m in manager_activity
-        ]
-    }
 
-def prepare_dataframe_for_export(session: Session, event_id: int = None) -> pd.DataFrame:
-    """Подготовить DataFrame для экспорта"""
-    
-    if event_id:
-        feedbacks = session.query(Feedback).filter_by(event_id=event_id).all()
-    else:
-        feedbacks = session.query(Feedback).all()
-    
-    data = []
-    for f in feedbacks:
-        data.append({
-            'ID': f.id,
-            'Мероприятие': f.event.name,
-            'Пользователь': f.user.full_name or f.user.username or f'ID{f.user.telegram_id}',
-            'Сообщение': f.message_text,
-            'Статус': f.status.value,
-            'Дата создания': f.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-            'Дата ответа': f.answered_at.strftime('%Y-%m-%d %H:%M:%S') if f.answered_at else '—',
-            'Менеджер': f.manager.full_name if f.manager else '—'
-        })
-    
-    return pd.DataFrame(data)
-
-def get_word_frequency(session: Session, event_id: int = None, top_n: int = 50) -> Counter:
+def get_word_frequency(session: Session, event_id: int = None, top_n: int = 50) -> list:
     """Получить частоту слов из отзывов (для облака слов)"""
     
     if event_id:
@@ -242,33 +159,29 @@ def get_word_frequency(session: Session, event_id: int = None, top_n: int = 50) 
     else:
         feedbacks = session.query(Feedback).all()
     
-    # Объединяем все тексты
-    all_text = ' '.join([f.message_text for f in feedbacks])
+    if not feedbacks:
+        return []
     
-    # Простая токенизация (можно улучшить с помощью NLTK или spaCy)
+    all_text = ' '.join([f.message_text for f in feedbacks])
     words = all_text.lower().split()
     
-    # Фильтруем стоп-слова (базовый список)
     stop_words = {
         'в', 'на', 'и', 'с', 'по', 'для', 'не', 'от', 'за', 'к', 'до', 'из', 'у', 'о',
         'что', 'это', 'как', 'так', 'но', 'а', 'то', 'все', 'она', 'он', 'они', 'мы',
-        'вы', 'я', 'был', 'была', 'было', 'были', 'есть', 'быть', 'был', 'будет'
+        'вы', 'я', 'был', 'была', 'было', 'были', 'есть', 'быть', 'будет'
     }
     
     filtered_words = [w for w in words if len(w) > 3 and w not in stop_words]
     
     return Counter(filtered_words).most_common(top_n)
 
+
 def calculate_nps(ratings: list) -> dict:
     """Рассчитать Net Promoter Score на основе оценок"""
     
     if not ratings:
-        return {'nps': 0, 'promoters': 0, 'passives': 0, 'detractors': 0}
-    
-    # Переводим оценки 1-5 в систему NPS (0-10)
-    # 5 звезд = 9-10 (промоутеры)
-    # 4 звезды = 7-8 (пассивные)
-    # 1-3 звезды = 0-6 (детракторы)
+        return {'nps': 0, 'promoters': 0, 'passives': 0, 'detractors': 0,
+                'promoters_pct': 0, 'passives_pct': 0, 'detractors_pct': 0}
     
     promoters = sum(1 for r in ratings if r >= 5)
     passives = sum(1 for r in ratings if r == 4)
